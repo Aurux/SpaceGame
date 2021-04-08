@@ -11,7 +11,7 @@ resY = 960
 resX = 960
 FPS = 60
 gameDisplay = pygame.display.set_mode((resX,resY))
-pygame.display.set_caption('Space Game')
+pygame.display.set_caption('The Psychon Assault')
 
 clock = pygame.time.Clock()
 
