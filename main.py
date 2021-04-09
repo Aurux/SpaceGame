@@ -27,8 +27,8 @@ alien_list = pygame.sprite.Group()
 alien_proj_list = pygame.sprite.Group()
 
 # Load projectile sprites.
-purpleLaser = pygame.image.load("art/purple_laser.png")
-redLaser = pygame.image.load("art/red_laser.png")
+purpleLaser = pygame.image.load("art/purple_laser_round.png")
+redLaser = pygame.image.load("art/red_laser_round.png")
 redLaser = pygame.transform.rotate(redLaser,180)
 
 # Initialise player variables.
@@ -61,7 +61,7 @@ class Player(pygame.sprite.Sprite):
         self.height = self.image.get_height()
         self.score = 0
         self.health = 100
-        self.damage = 1
+        self.damage = 10
         self.angle = 0
         self.direction = pygame.math.Vector2(0,-1)
     def update(self):
@@ -88,7 +88,7 @@ class Player(pygame.sprite.Sprite):
         self.angle = -math.atan2(relY,relX)
         self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
     def fire(self):
-        shot = Projectile(purpleLaser,self.rect.centerx,self.rect.top)
+        shot = Projectile(purpleLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         proj_list.add(shot)
         all_sprites.add(shot)
 
@@ -131,7 +131,7 @@ class Enemy(pygame.sprite.Sprite):
     def hit(self):
         self.kill()
     def fire(self):
-        shot = Projectile(redLaser,self.rect.centerx,self.rect.bottom)
+        shot = Projectile(redLaser,self.rect.centerx,self.rect.centery,180)
         alien_proj_list.add(shot)
         all_sprites.add(shot)
 
@@ -160,20 +160,27 @@ def spawn_alien_wave(waveCount):
     
     return alien_list
 
+
 # Projectile class
 class Projectile(pygame.sprite.Sprite):
-    def __init__(self,image,x,y):
+    def __init__(self,image,x,y,angle):
         pygame.sprite.Sprite.__init__(self)
         self.image = image
         self.image_init = image
-        self.rect = self.image.get_rect()
-        self.rect.center = (x,y)
+        self.x = x
+        self.y = y
         self.speed = 10
+        self.angle = angle
+        self.rect = self.image.get_rect()
+        
+        self.rect.center = (x,y)
     def update(self):
         if self.image == purpleLaser:
-            self.rect.centery -= self.speed
+            change = ((self.rect.centerx) - int((self.speed * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.speed * math.cos(math.radians(self.angle)))))
+            self.rect.center = change
         if self.image == redLaser:
-            self.rect.centery += self.speed / 2
+            change = ((self.rect.centerx) - int((self.speed /2 * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.speed /2* math.cos(math.radians(self.angle)))))
+            self.rect.center = change
         if self.rect.y > resY or self.rect.y < 0 or self.rect.x > resX or self.rect.x < play_areaX:
             self.kill()
 
@@ -223,6 +230,9 @@ while gameRunning:
     
     while pause == True:
         for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
             if event.type==pygame.KEYDOWN:
                 if event.key==pygame.K_p:
                     pause = False
@@ -262,7 +272,7 @@ while gameRunning:
     all_sprites.update()
     
     # Check for players hits
-    hits = pygame.sprite.groupcollide(proj_list,alien_list,False,False)
+    hits = pygame.sprite.groupcollide(proj_list,alien_list,True,False)
     for i in hits.values():
         for alien in i:
             alien.health -= player.damage
