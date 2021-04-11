@@ -1,16 +1,19 @@
 import pygame
 import random
-import time
 import math
 import pygame.freetype
 
+pygame.init()
+pygame.freetype.init()
 
 smallAlien = pygame.transform.scale(pygame.image.load("art/smallAlien.png"),(30,30))
 largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,60))
 bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
-
+purpleLaser = pygame.image.load("art/purple_laser_round.png")
+redLaser = pygame.transform.rotate(pygame.image.load("art/red_laser_round.png"),180)
 # The player class
 class Player(pygame.sprite.Sprite):
+    score = 0
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.transform.scale(pygame.image.load("art/player.png"),(80,80))
@@ -21,12 +24,12 @@ class Player(pygame.sprite.Sprite):
         self.speed = 5
         self.width = self.image.get_width()
         self.height = self.image.get_height()
-        self.score = 0
+        self.previous_time = pygame.time.get_ticks()
         self.health = 100
         self.damage = 10
         self.angle = 0
         self.direction = pygame.math.Vector2(0,-1)
-        self.firerate = 500
+        self.firerate = 300
     def update(self):
         # Takes key input to move player around with bounding condtions to keep player within play area.
         keys = pygame.key.get_pressed()
@@ -39,7 +42,10 @@ class Player(pygame.sprite.Sprite):
         if keys[ord('s')]:
             self.rect.y += self.speed
         if keys[ord(' ')] and len(Game.alien_list) > 0:
-            player.fire()
+            current_time = pygame.time.get_ticks()
+            if current_time - self.previous_time > self.firerate:
+                self.previous_time = current_time
+                self.fire()
         if self.rect.left <= Game.resX * 0.25:
             self.rect.left = Game.resX * 0.25
         elif self.rect.right >= Game.resX:
@@ -76,27 +82,21 @@ class Enemy(pygame.sprite.Sprite):
         if self.health <= 0:
             self.kill()
             if self.image == smallAlien:
-                player.score += 5
+                Player.score += 5
             if self.image == largeAlien:
-                player.score += 10
+                Player.score += 10
     def hit(self):
         self.kill()
     def spawn(waveCount):
         # Spawns in varying amounts of aliens and varying sizes of aliens depending on which wave you're on.
-        if waveCount < 5:
-            for i in range(50*waveCount):
-                alienX = Game.resX * 0.625
-                alienY = 100
-                i = Enemy(smallAlien,alienX,alienY,10)
-                Game.alien_list.add(i)
-                Game.all_sprites.add(i)
+        
+        for i in range(50*waveCount):
+            alienX = Game.resX * 0.625
+            alienY = 100
+            i = Enemy(smallAlien,alienX,alienY,10)
+            Game.alien_list.add(i)
+            Game.all_sprites.add(i)
         if waveCount >= 5:
-            for i in range(10+waveCount):
-                alienX = Game.resX * 0.625
-                alienY = 100
-                i = Enemy(smallAlien,alienX,alienY,10)
-                Game.alien_list.add(i)
-                Game.all_sprites.add(i)
             if waveCount % 5 == 0:
                 for i in range(waveCount):
                     alienX = Game.resX * 0.625
@@ -109,7 +109,7 @@ class Enemy(pygame.sprite.Sprite):
                 for i in range(int(waveCount/10)):
                     alienX = Game.resX * 0.625
                     alienY = 100
-                    i = Enemy(bossAlien,alienX,alienY,100)
+                    i = Enemy(bossAlien,alienX,alienY,10000)
                     Game.alien_list.add(i)
                     Game.all_sprites.add(i) 
         return
@@ -150,15 +150,12 @@ class Game:
     proj_list = pygame.sprite.Group()
     alien_list = pygame.sprite.Group()
     alien_proj_list = pygame.sprite.Group()
-
+    font_size = 60
+    font = pygame.freetype.Font("Xolonium-Bold.ttf", font_size)
     screen = pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
     def __init__(self):
         self.clock = pygame.time.Clock()
-        self.font_size = 60
-        self.font = pygame.freetype.Font("Xolonium-Bold.ttf", self.font_size)
-        
-        
         self.running = True
         self.startFlag = True
         self.readyFlag = False
@@ -167,8 +164,10 @@ class Game:
         self.setup()
         while self.running:
             self.event_handle()
-            self.game_logic()
             self.draw()
+            self.game_logic()
+            pygame.display.update()
+            self.clock.tick_busy_loop(self.FPS)
     def event_handle(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -185,28 +184,26 @@ class Game:
                 if event.type==pygame.KEYDOWN:
                     if event.key==pygame.K_p:
                         self.pause = False
-                        waveCount = 1
+                        self.waveCount = 1
                         player = Player()
                         self.playerGroup.add(player)
                         self.all_sprites.add(player)
     def setup(self):
         #Static rects
-        playRect = pygame.Rect(self.resX * 0.25, 0, self.resX, self.resY)
-        scoreRect = pygame.Rect(10, 10, self.resX * 0.25 - 20, 50)
-        alienHealthBarBase = pygame.Rect(10, 70, self.resX * 0.25 - 20, 50)
-        healthBarBase = pygame.Rect(10, 902, self.resX * 0.25 - 20, self.resY * 0.05)
+        self.playRect = pygame.Rect(self.resX * 0.25, 0, self.resX, self.resY)
+        self.scoreRect = pygame.Rect(10, 10, self.resX * 0.25 - 20, 50)
+        self.alienHealthBarBase = pygame.Rect(10, 70, self.resX * 0.25 - 20, 50)
+        self.healthBarBase = pygame.Rect(10, 902, self.resX * 0.25 - 20, self.resY * 0.05)
 
         #Star generation
-        starXs = []
-        starYs = []
-        starCount = 200
-        for i in range(starCount):
-            starXs.append(random.randint(self.resX * 0.25, self.resX))
-            starYs.append(random.randint(0, self.resY))
+        self.starXs = []
+        self.starYs = []
+        self.starCount = 200
+        for i in range(self.starCount):
+            self.starXs.append(random.randint(self.resX * 0.25, self.resX))
+            self.starYs.append(random.randint(0, self.resY))
 
         # Load Sprites
-        purpleLaser = pygame.image.load("art/purple_laser_round.png")
-        redLaser = pygame.transform.rotate(pygame.image.load("art/red_laser_round.png"),180)
         smallAlien = pygame.transform.scale(pygame.image.load("art/smallAlien.png"),(30,30))
         largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,60))
         bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
@@ -216,44 +213,45 @@ class Game:
         self.playerGroup.add(self.player)
         self.all_sprites.add(self.player)
 
-        waveCount = 1
+        self.waveCount = 1
         waveHealth = []
-        alien_health = 0
-        total_alien_health = 0
-        alien_wave = Enemy.spawn(waveCount)
+        self.alien_health = 0
+        self.total_alien_health = 0
+        alien_wave = Enemy.spawn(self.waveCount)
         for alien in self.alien_list:
-            total_alien_health += alien.health
-        alien_health = total_alien_health
+            self.total_alien_health += alien.health
+        self.alien_health = self.total_alien_health
     def draw(self):
         # Draw play area
         self.screen.fill((56, 0 ,153))
         # Draw HUD
-        healthBarFill = pygame.Rect(10, 902, (self.resX * 0.25 - 20)*((player.health)/100), self.resY * 0.05)
+        healthBarFill = pygame.Rect(10, 902, (self.resX * 0.25 - 20)*((self.player.health)/100), self.resY * 0.05)
 
-        pygame.draw.rect(self.screen, (0,0,0), playRect)
-        pygame.draw.rect(self.screen, (0,71,158), scoreRect,0,3)
-        pygame.draw.rect(self.screen, (252,186,3), alienHealthBarBase,0,3)
-        pygame.draw.rect(self.screen, (255,0,0), healthBarBase,0,3)
+        pygame.draw.rect(self.screen, (0,0,0), self.playRect)
+        pygame.draw.rect(self.screen, (0,71,158), self.scoreRect,0,3)
+        pygame.draw.rect(self.screen, (252,186,3), self.alienHealthBarBase,0,3)
+        pygame.draw.rect(self.screen, (255,0,0), self.healthBarBase,0,3)
         pygame.draw.rect(self.screen, (0,255,0), healthBarFill,0,3)
 
         # Draw Stars
-        for i in range(starCount):
-            pygame.draw.circle(self.screen, (255, 255, 255), (starXs[i], starYs[i]), 1, 1)
-            starYs[i] += 3
+        for i in range(self.starCount):
+            pygame.draw.circle(self.screen, (255, 255, 255), (self.starXs[i], self.starYs[i]), 1, 1)
+            self.starYs[i] += 3
 
-        if starYs[i] > self.resY:
-            starYs[i] = 10
-        
-        if self.startFlag: # Runs once at the start of every wave to store total wave health.
+            if self.starYs[i] > self.resY:
+                self.starYs[i] = 10
+
+        # Runs once at the start of every wave to store total wave health.
+        if self.startFlag: 
             self.startFlag = False
-            total_alien_health = 0
+            self.total_alien_health = 0
             for alien in self.alien_list:
-                total_alien_health += alien.health
-            alien_health = total_alien_health
+                self.total_alien_health += alien.health
+            self.alien_health = self.total_alien_health
 
         self.all_sprites.update()
         self.all_sprites.draw(self.screen)
-        Stats(player.score,waveCount,player.health,alien_health_percent)
+        
     
     def game_logic(self):
         # Check for players hits
@@ -261,7 +259,9 @@ class Game:
         for i in hits.values():
             for alien in i:
                 alien.health -= self.player.damage
-                alien_health -= self.player.damage
+                self.alien_health -= self.player.damage
+        if self.alien_health < 0:
+            self.alien_health = 0
         # Check for alien hits
         if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True):
             self.player.health -= 1
@@ -272,12 +272,11 @@ class Game:
             self.font.render_to(self.screen, (self.resX * 0.25 + 80, self.resY /2), "GAME OVER", (255,255,255), None, size=80)
             self.pause = True
         # Monitor total health of alien wave.
-        alien_health_percent = (alien_health / total_alien_health) * 100
-
-        alienHealthBarFill = pygame.Rect(10, 70, (self.resX * 0.25 - 20)*(alien_health_percent/100), 50)
-
-
+        alien_health_percent = (self.alien_health / self.total_alien_health)
+        print(alien_health_percent, self.alien_health,self.total_alien_health)
+        alienHealthBarFill = pygame.Rect(10, 70, (self.resX * 0.25 - 20)*(alien_health_percent), 50)
         pygame.draw.rect(self.screen, (3,194,252), alienHealthBarFill,0,3)
+        Game().Stats(self.player.score,self.waveCount,self.player.health,alien_health_percent*100)
 
         # Randomly select when enemies fire
         for alien in self.alien_list:
@@ -285,31 +284,31 @@ class Game:
             if choice > 998:
                 alien.fire()
         
-        if len(self.alien_list) == 0 and player.health > 0:
+        if len(self.alien_list) == 0 and self.player.health > 0:
             for proj in self.alien_proj_list:
                 proj.kill()
             for proj in self.proj_list:
                 proj.kill()
-            self.font.render_to(self.screen, (self.resX * 0.25 + 15, self.resY /2), "Wave "+str(waveCount)+" cleared! Press R to start next wave.", (255,255,255), None, size=28)
-            player.rect.centerx = self.resX * 0.625
-            player.rect.bottom = self.resY - 20
+            self.font.render_to(self.screen, (self.resX * 0.25 + 15, self.resY /2), "Wave "+str(self.waveCount)+" cleared! Press R to start next wave.", (255,255,255), None, size=28)
+            self.player.rect.centerx = self.resX * 0.625
+            self.player.rect.bottom = self.resY - 20
             if self.readyFlag:
-                waveCount += 1
+                self.waveCount += 1
                 self.startFlag = True
                 self.readyFlag = False
-                alien_wave = spawn(waveCount)
-                total_alien_health = 0
+                alien_wave = Enemy.spawn(self.waveCount)
+                self.total_alien_health = 0
                 for alien in self.alien_list:
-                    total_alien_health += alien.health
-                alien_health = total_alien_health
-    def Stats(score,wave,health,alien_health):
-        self.font.render_to(self.screen, (12, 12), "Score: "+str(score), (0,0,0), None, size=30)
+                    self.total_alien_health += alien.health
+                self.alien_health = self.total_alien_health
+    def Stats(self,score,wave,health,alien_health):
+        Game.font.render_to(self.screen, (12, 12), "Score: "+str(score), (0,0,0), None, size=30)
         self.font.render_to(self.screen, (12, 36), "Wave: "+str(wave), (0,0,0), None, size=30)
         self.font.render_to(self.screen, (45, 922), "Hull Integrity: "+str(health)+"%", (0,0,0), None, size=15)
-        self.font.render_to(self.screen, (18, 90), "Psychon Strength: "+str("%.0f" % abs(alien_health))+"%", (0,0,0), None, size=15)
+        self.font.render_to(self.screen, (18, 90), "Psychon Strength: "+str("%.0f" % alien_health)+"%", (0,0,0), None, size=15)
 
 
-pygame.init()
+
 Game().run()
 pygame.quit()
 quit()
