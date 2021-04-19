@@ -6,11 +6,13 @@ import pygame.freetype
 pygame.init()
 pygame.freetype.init()
 
+# Global sprites
 smallAlien = pygame.transform.scale(pygame.image.load("art/smallAlien.png"),(30,30))
 largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,60))
 bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
 purpleLaser = pygame.image.load("art/purple_laser_round.png")
 redLaser = pygame.transform.rotate(pygame.image.load("art/red_laser_round.png"),180)
+
 # The player class
 class Player(pygame.sprite.Sprite):
     score = 0
@@ -113,8 +115,14 @@ class Enemy(pygame.sprite.Sprite):
                     Game.alien_list.add(i)
                     Game.all_sprites.add(i) 
         return
-    def fire(self):
-        shot = Projectile(redLaser,self.rect.centerx,self.rect.centery,180)
+    def fire(self,targetX,targetY):
+        relX, relY = targetX - self.rect.centerx, targetY - self.rect.centery
+        self.angle = -math.atan2(relY,relX)
+        #self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
+
+
+
+        shot = Projectile(redLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         Game.alien_proj_list.add(shot)
         Game.all_sprites.add(shot)
 
@@ -127,6 +135,7 @@ class Projectile(pygame.sprite.Sprite):
         self.x = x
         self.y = y
         self.speed = 10
+        self.enemyspeed = 7
         self.angle = angle
         self.rect = self.image.get_rect()
         
@@ -136,7 +145,7 @@ class Projectile(pygame.sprite.Sprite):
             change = ((self.rect.centerx) - int((self.speed * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.speed * math.cos(math.radians(self.angle)))))
             self.rect.center = change
         if self.image == redLaser:
-            change = ((self.rect.centerx) - int((self.speed /2 * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.speed /2* math.cos(math.radians(self.angle)))))
+            change = ((self.rect.centerx) - int((self.enemyspeed * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.enemyspeed* math.cos(math.radians(self.angle)))))
             self.rect.center = change
         if self.rect.y > Game.resY or self.rect.y < 0 or self.rect.x > Game.resX or self.rect.x < Game.resX * 0.25:
             self.kill()
@@ -262,6 +271,7 @@ class Game:
                 self.alien_health -= self.player.damage
         if self.alien_health < 0:
             self.alien_health = 0
+
         # Check for alien hits
         if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True):
             self.player.health -= 1
@@ -271,6 +281,12 @@ class Game:
                 i.kill()
             self.font.render_to(self.screen, (self.resX * 0.25 + 80, self.resY /2), "GAME OVER", (255,255,255), None, size=80)
             self.pause = True
+
+        # Check for collisions / ramming
+        collisions = pygame.sprite.groupcollide(self.playerGroup, self.alien_list,False,False)
+        for i in collisions.values():
+            for obj in i:
+                obj.health -= 0.5
         # Monitor total health of alien wave.
         alien_health_percent = (self.alien_health / self.total_alien_health)
         print(alien_health_percent, self.alien_health,self.total_alien_health)
@@ -282,7 +298,7 @@ class Game:
         for alien in self.alien_list:
             choice = choice = random.randint(0,1000)   
             if choice > 998:
-                alien.fire()
+                alien.fire(self.player.rect.centerx,self.player.rect.centery)
         
         if len(self.alien_list) == 0 and self.player.health > 0:
             for proj in self.alien_proj_list:
