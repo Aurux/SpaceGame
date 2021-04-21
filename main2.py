@@ -2,23 +2,27 @@ import pygame
 import random
 import math
 import pygame.freetype
+import os
 
+gamePath = os.path.dirname(__file__)
+artPath = os.path.join(gamePath,"art")
+soundPath = os.path.join(gamePath,"sounds")
 pygame.init()
 pygame.freetype.init()
 
 # Global sprites
-smallAlien = pygame.transform.scale(pygame.image.load("art/smallAlien.png"),(30,30))
-largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,60))
-bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
-purpleLaser = pygame.image.load("art/purple_laser_round.png")
-redLaser = pygame.transform.rotate(pygame.image.load("art/red_laser_round.png"),180)
-titleText = pygame.image.load("art/title.png")
+smallAlien = pygame.transform.scale(pygame.image.load(os.path.join(artPath,"smallAlien.png")),(30,30))
+largeAlien = pygame.transform.scale(pygame.image.load(os.path.join(artPath,"largeAlien.png")),(60,60))
+bossAlien = pygame.transform.scale(pygame.image.load(os.path.join(artPath,"Boss.png")),(200,200))
+purpleLaser = pygame.image.load(os.path.join(artPath,"purple_laser_round.png"))
+redLaser = pygame.transform.rotate(pygame.image.load(os.path.join(artPath,"red_laser_round.png")),180)
+titleText = pygame.image.load(os.path.join(artPath,"title.png"))
 
 # Sound effects/Music
 
-enemyLaser = pygame.mixer.Sound("sounds/enemy_lazer.wav")
-playerLaser = pygame.mixer.Sound("sounds/lazer.wav")
-damageThud = pygame.mixer.Sound("sounds/thud.wav")
+enemyLaser = pygame.mixer.Sound(os.path.join(soundPath,"enemy_lazer.wav"))
+playerLaser = pygame.mixer.Sound(os.path.join(soundPath,"lazer.wav"))
+damageThud = pygame.mixer.Sound(os.path.join(soundPath,"thud.wav"))
 
 enemyLaser.set_volume(0.3)
 playerLaser.set_volume(0.5)
@@ -29,7 +33,7 @@ class Player(pygame.sprite.Sprite):
     score = 0
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.transform.scale(pygame.image.load("art/player.png"),(80,80))
+        self.image = pygame.transform.scale(pygame.image.load(os.path.join(artPath,"player.png")),(80,80))
         self.image_init = self.image
         self.rect = self.image.get_rect()
         self.rect.bottom = Game.resY - 20
@@ -171,7 +175,7 @@ class Game:
     alien_list = pygame.sprite.Group()
     alien_proj_list = pygame.sprite.Group()
     font_size = 60
-    font = pygame.freetype.Font("Xolonium-Bold.ttf", font_size)
+    font = pygame.freetype.Font(os.path.join(gamePath,"Xolonium-Bold.ttf"), font_size)
     screen = pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
     def __init__(self):
@@ -223,10 +227,6 @@ class Game:
             self.starXs.append(random.randint(self.resX * 0.25, self.resX))
             self.starYs.append(random.randint(0, self.resY))
 
-        # Load Sprites
-        smallAlien = pygame.transform.scale(pygame.image.load("art/smallAlien.png"),(30,30))
-        largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,60))
-        bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
 
         # Setup sprites and sprite variables
         self.player = Player()
@@ -340,7 +340,7 @@ class Menu:
     resY = 960
     FPS = 60
     font_size = 60
-    font = pygame.freetype.Font("Xolonium-Bold.ttf", font_size)
+    font = pygame.freetype.Font(os.path.join(gamePath,"Xolonium-Bold.ttf"), font_size)
     screen = pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
     clock = pygame.time.Clock()
@@ -394,7 +394,7 @@ class Menu:
             [self.resetRect, (224,153,0)],
         ]
 
-        pygame.mixer.music.load("sounds/menu2.wav")
+        pygame.mixer.music.load(os.path.join(soundPath,"menu2.wav"))
         pygame.mixer.music.play(-1)
     def draw(self):
         self.screen.fill((0, 0 ,0))
@@ -424,7 +424,7 @@ class Menu:
         self.font.render_to(self.screen, (380, 760), "By Benjamin Wilson", (255,255,255), None, size=20)
         self.font.render_to(self.screen, (585, 435), "High Score", (0,0,0), None, size=20)
         self.font.render_to(self.screen, (600, 535), "Held by", (0,0,0), None, size=20)
-#Game().run(True)
-Menu().run()
+Game().run(True)
+#Menu().run()
 pygame.quit()
 quit()
