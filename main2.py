@@ -12,6 +12,17 @@ largeAlien = pygame.transform.scale(pygame.image.load("art/largeAlien.png"),(60,
 bossAlien = pygame.transform.scale(pygame.image.load("art/Boss.png"),(200,200))
 purpleLaser = pygame.image.load("art/purple_laser_round.png")
 redLaser = pygame.transform.rotate(pygame.image.load("art/red_laser_round.png"),180)
+titleText = pygame.image.load("art/title.png")
+
+# Sound effects/Music
+
+enemyLaser = pygame.mixer.Sound("sounds/enemy_lazer.wav")
+playerLaser = pygame.mixer.Sound("sounds/lazer.wav")
+damageThud = pygame.mixer.Sound("sounds/thud.wav")
+
+enemyLaser.set_volume(0.3)
+playerLaser.set_volume(0.5)
+damageThud.set_volume(0.8)
 
 # The player class
 class Player(pygame.sprite.Sprite):
@@ -61,6 +72,7 @@ class Player(pygame.sprite.Sprite):
         self.angle = -math.atan2(relY,relX)
         self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
     def fire(self):
+        playerLaser.play(0)
         shot = Projectile(purpleLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         Game.proj_list.add(shot)
         Game.all_sprites.add(shot)
@@ -70,6 +82,7 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self,image,x,y,health):
         pygame.sprite.Sprite.__init__(self)
         self.image = image
+        self.image_init = self.image
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.y = y
@@ -118,10 +131,8 @@ class Enemy(pygame.sprite.Sprite):
     def fire(self,targetX,targetY):
         relX, relY = targetX - self.rect.centerx, targetY - self.rect.centery
         self.angle = -math.atan2(relY,relX)
-        #self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
-
-
-
+        self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)+ 90))
+        enemyLaser.play(0)
         shot = Projectile(redLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         Game.alien_proj_list.add(shot)
         Game.all_sprites.add(shot)
@@ -165,12 +176,12 @@ class Game:
     pygame.display.set_caption('The Psychon Assault')
     def __init__(self):
         self.clock = pygame.time.Clock()
-        self.running = True
         self.startFlag = True
         self.readyFlag = False
         self.pause = False
-    def run(self):
+    def run(self,running):
         self.setup()
+        self.running = running
         while self.running:
             self.event_handle()
             self.draw()
@@ -241,7 +252,6 @@ class Game:
         pygame.draw.rect(self.screen, (252,186,3), self.alienHealthBarBase,0,3)
         pygame.draw.rect(self.screen, (255,0,0), self.healthBarBase,0,3)
         pygame.draw.rect(self.screen, (0,255,0), healthBarFill,0,3)
-
         # Draw Stars
         for i in range(self.starCount):
             pygame.draw.circle(self.screen, (255, 255, 255), (self.starXs[i], self.starYs[i]), 1, 1)
@@ -274,7 +284,8 @@ class Game:
 
         # Check for alien hits
         if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True):
-            self.player.health -= 1
+            self.player.health -= self.waveCount
+            damageThud.play(0)
 
         if self.player.health <= 0:
             for i in self.all_sprites:
@@ -324,7 +335,96 @@ class Game:
         self.font.render_to(self.screen, (18, 90), "Psychon Strength: "+str("%.0f" % alien_health)+"%", (0,0,0), None, size=15)
 
 
+class Menu:
+    resX = 960
+    resY = 960
+    FPS = 60
+    font_size = 60
+    font = pygame.freetype.Font("Xolonium-Bold.ttf", font_size)
+    screen = pygame.display.set_mode((resX,resY))
+    pygame.display.set_caption('The Psychon Assault')
+    clock = pygame.time.Clock()
+    def run(self):
+        self.setup()
+        self.running = True
+        while self.running:
+            self.event_handle()
+            self.draw()
+            pygame.display.update()
+            self.clock.tick_busy_loop(self.FPS)
+    def event_handle(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                pygame.quit
+            elif event.type == pygame.KEYDOWN: 
+                if event.key == pygame.K_r:
+                    self.running = False
+                    Game().run(True)
+            elif event.type == pygame.MOUSEMOTION:
+                for button in self.buttonArray:
+                    if button[0].collidepoint(event.pos):
+                        button[1] = (153, 105 ,0)
+                    else:
+                        button[1] = (224,153,0)
+                         
+    def setup(self):
+        #Star generation
+        self.starXs = []
+        self.starYs = []
+        self.starCount = 200
+        for i in range(self.starCount):
+            self.starXs.append(random.randint(0, self.resX))
+            self.starYs.append(random.randint(0, self.resY))
+        
+        # Setup menu rects
+        self.bgRect = pygame.Rect(160,380,640,400)
+        self.playRect = pygame.Rect(210,431,220,98)
+        self.optRect = pygame.Rect(210,531,220,98)
+        self.quitRect = pygame.Rect(210,631,220,98)
 
-Game().run()
+        self.hsRect = pygame.Rect(530,431,220,98)
+        self.nameRect = pygame.Rect(530,531,220,98)
+        self.resetRect = pygame.Rect(530,631,220,98)
+
+        self.buttonArray = [
+            [self.playRect, (224,153,0)],
+            [self.optRect, (224,153,0)],
+            [self.quitRect, (224,153,0)],
+            [self.resetRect, (224,153,0)],
+        ]
+
+        pygame.mixer.music.load("sounds/menu2.wav")
+        pygame.mixer.music.play(-1)
+    def draw(self):
+        self.screen.fill((0, 0 ,0))
+        # Draw Stars
+        for i in range(self.starCount):
+            pygame.draw.circle(self.screen, (255, 255, 255), (self.starXs[i], self.starYs[i]), 1, 1)
+            self.starYs[i] += 3
+
+            if self.starYs[i] > self.resY:
+                self.starYs[i] = 10
+        
+        # Draw Title
+        pygame.Surface.blit(self.screen,titleText,(8,80))
+        # Draw rects
+        pygame.draw.rect(self.screen, (56, 0 ,153), self.bgRect,0,100)
+        pygame.draw.rect(self.screen, (224,153,0), self.hsRect,0,10)
+        pygame.draw.rect(self.screen, (224,153,0), self.nameRect,0,10)
+
+        for rect, colour in self.buttonArray:
+            pygame.draw.rect(self.screen, colour, rect,0, 10)
+
+        # Draw Text
+        self.font.render_to(self.screen, (265, 465), "Play", (0,0,0), None, size=50)
+        self.font.render_to(self.screen, (215, 565), "Options", (0,0,0), None, size=50)
+        self.font.render_to(self.screen, (265, 665), "Quit", (0,0,0), None, size=50)
+        self.font.render_to(self.screen, (540, 670), "Reset HS", (0,0,0), None, size=40)
+        self.font.render_to(self.screen, (380, 760), "By Benjamin Wilson", (255,255,255), None, size=20)
+        self.font.render_to(self.screen, (585, 435), "High Score", (0,0,0), None, size=20)
+        self.font.render_to(self.screen, (600, 535), "Held by", (0,0,0), None, size=20)
+#Game().run(True)
+Menu().run()
 pygame.quit()
 quit()
