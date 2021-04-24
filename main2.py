@@ -3,6 +3,7 @@ import random
 import math
 import pygame.freetype
 import os
+import sys
 
 gamePath = os.path.dirname(__file__)
 artPath = os.path.join(gamePath,"art")
@@ -18,15 +19,34 @@ purpleLaser = pygame.image.load(os.path.join(artPath,"purple_laser_round.png"))
 redLaser = pygame.transform.rotate(pygame.image.load(os.path.join(artPath,"red_laser_round.png")),180)
 titleText = pygame.image.load(os.path.join(artPath,"title.png"))
 
+pygame.display.set_icon(pygame.transform.scale(pygame.image.load(os.path.join(artPath,"player.png")),(32,32)))
 # Sound effects/Music
 
 enemyLaser = pygame.mixer.Sound(os.path.join(soundPath,"enemy_lazer.wav"))
 playerLaser = pygame.mixer.Sound(os.path.join(soundPath,"lazer.wav"))
 damageThud = pygame.mixer.Sound(os.path.join(soundPath,"thud.wav"))
+pause = pygame.mixer.Sound(os.path.join(soundPath,"pause.wav"))
+play = pygame.mixer.Sound(os.path.join(soundPath,"play.wav"))
+mouseOver = pygame.mixer.Sound(os.path.join(soundPath,"mouse_over_click.wav"))
 
 enemyLaser.set_volume(0.3)
 playerLaser.set_volume(0.5)
 damageThud.set_volume(0.8)
+mouseOver.set_volume(0.2)
+
+MOUSE_STATE_WITHIN_RECT = 1
+MOUSE_STATE_JUST_HIT_RECT = 2
+MOUSE_NOT_IN_RECT = 3
+
+
+def Mouse_State(button,pos,state):
+    if button.collidepoint(pos):
+        if state == MOUSE_STATE_WITHIN_RECT:
+            return MOUSE_STATE_WITHIN_RECT
+        else:
+            return MOUSE_STATE_JUST_HIT_RECT
+    else:
+        return MOUSE_NOT_IN_RECT
 
 # The player class
 class Player(pygame.sprite.Sprite):
@@ -197,6 +217,11 @@ class Game:
             self.game_logic()
             pygame.display.update()
             self.clock.tick_busy_loop(self.FPS)
+            if self.running is False:
+                pygame.quit()
+                sys.exit()
+        
+        
     def event_handle(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -206,6 +231,7 @@ class Game:
                 for button in self.buttonArray:
                     if button[0].collidepoint(event.pos):
                         button[1] = (153, 105 ,0)
+                        #mouseOver.play(0)
                     else:
                         button[1] = (224,153,0)
             if event.type == pygame.MOUSEBUTTONUP:
@@ -219,12 +245,22 @@ class Game:
                     Game().HighScoreWrite(self.player.score,self.inputName)
                     self.running = False
                     self.player.score = 0
+                    for sprite in self.all_sprites:
+                        sprite.kill()
                     Game().run(True)
                 if self.exitBox.collidepoint(event.pos):
                     Game().HighScoreWrite(self.player.score,self.inputName)
                     self.running = False
                     self.player.score = 0
+                    for sprite in self.all_sprites:
+                        sprite.kill()
+
+                    self.pause = not self.pause
+                    self.running = not self.running
                     Menu().run()
+                if self.resumeBox.collidepoint(event.pos):
+                    self.pause = False
+                    play.play()
             if event.type == pygame.KEYDOWN: 
                 if self.inputState:
                     if event.key == pygame.K_RETURN:
@@ -239,19 +275,20 @@ class Game:
                             self.inputName += event.unicode
                 if event.key == pygame.K_r:
                     self.readyFlag = True
-    
-        while self.pause == True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    quit()
-                if event.type==pygame.KEYDOWN:
-                    if event.key==pygame.K_p:
-                        self.pause = False
-                        self.waveCount = 1
-                        player = Player()
-                        self.playerGroup.add(player)
-                        self.all_sprites.add(player)
+                if event.key == pygame.K_ESCAPE:
+                    self.pause = not self.pause
+                    pause.play(0)
+                    while self.pause:
+                        for rect, colour in self.buttonArray:
+                            pygame.draw.rect(self.screen, colour, rect,0, 10)
+                        self.font.render_to(self.screen, (self.resX * 0.25 + 170, self.resY /2 - 50), "PAUSED", (255,255,255), None, size=80)
+                        self.font.render_to(self.screen,(self.restartBox.x + 40,self.restartBox.y + 20),"Restart",None,size=30)
+                        self.font.render_to(self.screen,(self.exitBox.x + 65,self.exitBox.y + 20),"Exit",None,size=30)
+                        self.font.render_to(self.screen,(self.resumeBox.x + 40,self.resumeBox.y + 20),"Resume",None,size=30)
+                        self.event_handle()
+                        pygame.display.update()
+                        self.clock.tick_busy_loop(self.FPS)
+                    play.play()
     def setup(self):
         #Static rects
         self.playRect = pygame.Rect(self.resX * 0.25, 0, self.resX, self.resY)
@@ -261,10 +298,12 @@ class Game:
         self.inputBox = pygame.Rect(self.resX * 0.25 + 160, (self.resY /2), 395, 60)
         self.restartBox = pygame.Rect(self.resX * 0.25 + 160, (self.resY /2 + 70), 195, 60)
         self.exitBox = pygame.Rect(self.resX * 0.25 + 360, (self.resY /2 + 70), 195, 60)
+        self.resumeBox = pygame.Rect(self.resX * 0.25 + 257.5, (self.resY /2 + 140), 195, 60)
 
         self.buttonArray = [
             [self.restartBox, (224,153,0)],
-            [self.exitBox, (224,153,0)]
+            [self.exitBox, (224,153,0)],
+            [self.resumeBox, (224,153,0)]
         ]
         #Star generation
         self.starXs = []
@@ -417,6 +456,11 @@ class Game:
                 if maxScore == 0:
                     maxScore = 0
         return maxScore, hsName
+    def Quit(self):
+        self.running = False
+        pygame.display.quit()
+        pygame.quit()
+        
 
 class Menu:
     resX = 960
@@ -427,6 +471,7 @@ class Menu:
     screen = pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
     clock = pygame.time.Clock()
+    hovered = False
     def run(self):
         self.setup()
         self.running = True
@@ -436,17 +481,20 @@ class Menu:
             pygame.display.update()
             self.clock.tick_busy_loop(self.FPS)
     def event_handle(self):
+        print(pygame.display.get_num_displays())
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False
-                pygame.quit
+                sys.exit()
             elif event.type == pygame.MOUSEMOTION:
                 # Change button colours on mouse over.
                 for button in self.buttonArray:
                     if button[0].collidepoint(event.pos):
                         button[1] = (153, 105 ,0)
+                        #mouseOver.play(0)
                     else:
                         button[1] = (224,153,0)
+                            
+                    
             elif event.type == pygame.MOUSEBUTTONUP:
                 # Decide which button was clicked.
                 mousePos = event.pos
@@ -525,6 +573,7 @@ class Menu:
         #self.font.render_to(self.screen, (540, 580), self.hsName, (0,0,0), None, size=25)
         nameImage, nameRect = self.font.render(str(self.hsName),(0,0,0),size=25)
         pygame.Surface.blit(self.screen,nameImage,(640 - nameRect[2] / 2,578 - nameRect[3] /2))
+
 
 
 Menu().run()
