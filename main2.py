@@ -29,10 +29,7 @@ pause = pygame.mixer.Sound(os.path.join(soundPath,"pause.wav"))
 play = pygame.mixer.Sound(os.path.join(soundPath,"play.wav"))
 mouseOver = pygame.mixer.Sound(os.path.join(soundPath,"mouse_over_click.wav"))
 
-enemyLaser.set_volume(0.3)
-playerLaser.set_volume(0.5)
-damageThud.set_volume(0.8)
-mouseOver.set_volume(0.2)
+
 
 MOUSE_STATE_WITHIN_RECT = 1
 MOUSE_STATE_JUST_HIT_RECT = 2
@@ -96,6 +93,8 @@ class Player(pygame.sprite.Sprite):
         self.angle = -math.atan2(relY,relX)
         self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
     def fire(self):
+        print(volumePercent)
+        playerLaser.set_volume(0.5*volumePercent)
         playerLaser.play(0)
         shot = Projectile(purpleLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         Game.proj_list.add(shot)
@@ -156,6 +155,7 @@ class Enemy(pygame.sprite.Sprite):
         relX, relY = targetX - self.rect.centerx, targetY - self.rect.centery
         self.angle = -math.atan2(relY,relX)
         self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)+ 90))
+        enemyLaser.set_volume(0.3*volumePercent)
         enemyLaser.play(0)
         shot = Projectile(redLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
         Game.alien_proj_list.add(shot)
@@ -277,6 +277,7 @@ class Game:
                     self.readyFlag = True
                 if event.key == pygame.K_ESCAPE:
                     self.pause = not self.pause
+                    pause.set_volume(volumePercent)
                     pause.play(0)
                     while self.pause:
                         for rect, colour in self.buttonArray:
@@ -288,6 +289,7 @@ class Game:
                         self.event_handle()
                         pygame.display.update()
                         self.clock.tick_busy_loop(self.FPS)
+                    play.set_volume(volumePercent)
                     play.play()
     def setup(self):
         #Static rects
@@ -326,7 +328,7 @@ class Game:
         alien_wave = Enemy.spawn(self.waveCount)
         for alien in self.alien_list:
             self.total_alien_health += alien.health
-        self.alien_health = self.total_alien_health
+        self.alien_health = self.total_alien_health        
     def draw(self):
         # Draw play area
         self.screen.fill((56, 0 ,153))
@@ -371,6 +373,7 @@ class Game:
         # Check for alien hits
         if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True):
             self.player.health -= self.waveCount
+            damageThud.set_volume(0.8*volumePercent)
             damageThud.play(0)
 
         # Check if player has died.
@@ -460,8 +463,11 @@ class Game:
         self.running = False
         pygame.display.quit()
         pygame.quit()
-        
 
+global volumeLevel
+volumeLevel = 10
+global volumePercent        
+volumePercent = volumeLevel / 10
 class Menu:
     resX = 960
     resY = 960
@@ -472,6 +478,8 @@ class Menu:
     pygame.display.set_caption('The Psychon Assault')
     clock = pygame.time.Clock()
     hovered = False
+    optionState = False
+    
     def run(self):
         self.setup()
         self.running = True
@@ -481,7 +489,6 @@ class Menu:
             pygame.display.update()
             self.clock.tick_busy_loop(self.FPS)
     def event_handle(self):
-        print(pygame.display.get_num_displays())
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
@@ -493,21 +500,44 @@ class Menu:
                         #mouseOver.play(0)
                     else:
                         button[1] = (224,153,0)
+                for button in self.optionButtonArray:
+                    if button[0].collidepoint(event.pos):
+                        button[1] = (153, 105 ,0)
+                        #mouseOver.play(0)
+                    else:
+                        button[1] = (224,153,0)
                             
                     
             elif event.type == pygame.MOUSEBUTTONUP:
                 # Decide which button was clicked.
                 mousePos = event.pos
-                if self.playRect.collidepoint(mousePos):
-                    self.running = False
-                    pygame.mixer.music.stop()
-                    Game().run(True)
-                if self.quitRect.collidepoint(mousePos):
-                    self.running = False
-                    pygame.quit
-                if self.resetRect.collidepoint(mousePos):
-                    open('scores.txt', 'w').close()
-                    self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
+                if self.optionState is False:
+                    if self.playRect.collidepoint(mousePos):
+                        self.running = False
+                        pygame.mixer.music.stop()
+                        Game().run(True)
+                    if self.quitRect.collidepoint(mousePos):
+                        self.running = False
+                        pygame.quit
+                    if self.resetRect.collidepoint(mousePos):
+                        open('scores.txt', 'w').close()
+                        self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
+                    if self.optRect.collidepoint(mousePos):
+                        self.optionState = not self.optionState
+                if self.optionState:
+                    global volumeLevel
+                    if self.backRect.collidepoint(mousePos):
+                        self.optionState = not self.optionState
+                    if self.volUpRect.collidepoint(mousePos):
+                        volumeLevel += 1
+                    if self.volDownRect.collidepoint(mousePos):
+                        volumeLevel -= 1
+                    if volumeLevel > 10:
+                        volumeLevel = 10
+                    elif volumeLevel < 0:
+                        volumeLevel = 0
+                    global volumePercent
+                    volumePercent = volumeLevel / 10
 
     def setup(self):
         #Star generation
@@ -528,6 +558,16 @@ class Menu:
         self.nameRect = pygame.Rect(530,531,220,98)
         self.resetRect = pygame.Rect(530,631,220,98)
 
+        self.backRect = pygame.Rect(370,631,220,98)
+        self.volDownRect = pygame.Rect(230,460,30,30)
+        self.volUpRect = pygame.Rect(305,460,30,30)
+
+        self.optionButtonArray = [
+            [self.backRect, (224,153,0)],
+            [self.volUpRect, (224,153,0)],
+            [self.volDownRect, (224,153,0)]
+        ]
+
         self.buttonArray = [
             [self.playRect, (224,153,0)],
             [self.optRect, (224,153,0)],
@@ -539,8 +579,12 @@ class Menu:
         self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
 
         pygame.mixer.music.load(os.path.join(soundPath,"menu.wav"))
+
         pygame.mixer.music.play(-1)
     def draw(self):
+        print(volumePercent)
+        pygame.mixer.music.set_volume(volumePercent)
+        mouseOver.set_volume(0.2*volumePercent)
         self.screen.fill((0, 0 ,0))
         # Draw Stars
         for i in range(self.starCount):
@@ -552,27 +596,38 @@ class Menu:
         
         # Draw Title
         pygame.Surface.blit(self.screen,titleText,(8,80))
-        # Draw rects
+
         pygame.draw.rect(self.screen, (56, 0 ,153), self.bgRect,0,100)
-        pygame.draw.rect(self.screen, (224,153,0), self.hsRect,0,10)
-        pygame.draw.rect(self.screen, (224,153,0), self.nameRect,0,10)
+        if self.optionState:
+            for rect, colour in self.optionButtonArray:
+                pygame.draw.rect(self.screen, colour, rect,0, 10)
+            self.font.render_to(self.screen, (415, 665), "Back", (0,0,0), None, size=50)
+            self.font.render_to(self.screen, (240, 440), "Volume", (255,255,255), None, size=20)
+            self.font.render_to(self.screen, (270, 470), str(volumeLevel), (255,255,255), None, size=20)
+            self.font.render_to(self.screen, (315, 470), "+", (0,0,0), None, size=20)
+            self.font.render_to(self.screen, (241, 475), "-", (0,0,0), None, size=20)
+        else:
+            # Draw rects
+            
+            pygame.draw.rect(self.screen, (224,153,0), self.hsRect,0,10)
+            pygame.draw.rect(self.screen, (224,153,0), self.nameRect,0,10)
 
-        for rect, colour in self.buttonArray:
-            pygame.draw.rect(self.screen, colour, rect,0, 10)
+            for rect, colour in self.buttonArray:
+                pygame.draw.rect(self.screen, colour, rect,0, 10)
 
-        # Draw Text
-        self.font.render_to(self.screen, (265, 465), "Play", (0,0,0), None, size=50)
-        self.font.render_to(self.screen, (215, 565), "Options", (0,0,0), None, size=50)
-        self.font.render_to(self.screen, (265, 665), "Quit", (0,0,0), None, size=50)
-        self.font.render_to(self.screen, (540, 670), "Reset HS", (0,0,0), None, size=40)
-        self.font.render_to(self.screen, (380, 760), "By Benjamin Wilson", (255,255,255), None, size=20)
-        self.font.render_to(self.screen, (585, 435), "High Score", (0,0,0), None, size=20)
-        scoreImage, scoreRect = self.font.render(str(self.highScore),(0,0,0),size=40)
-        pygame.Surface.blit(self.screen,scoreImage,(640 - scoreRect[2] / 2,480 -scoreRect[3] /2))
-        self.font.render_to(self.screen, (600, 535), "Held by", (0,0,0), None, size=20)
-        #self.font.render_to(self.screen, (540, 580), self.hsName, (0,0,0), None, size=25)
-        nameImage, nameRect = self.font.render(str(self.hsName),(0,0,0),size=25)
-        pygame.Surface.blit(self.screen,nameImage,(640 - nameRect[2] / 2,578 - nameRect[3] /2))
+            # Draw Text
+            self.font.render_to(self.screen, (265, 465), "Play", (0,0,0), None, size=50)
+            self.font.render_to(self.screen, (215, 565), "Options", (0,0,0), None, size=50)
+            self.font.render_to(self.screen, (265, 665), "Quit", (0,0,0), None, size=50)
+            self.font.render_to(self.screen, (540, 670), "Reset HS", (0,0,0), None, size=40)
+            self.font.render_to(self.screen, (380, 760), "By Benjamin Wilson", (255,255,255), None, size=20)
+            self.font.render_to(self.screen, (585, 435), "High Score", (0,0,0), None, size=20)
+            scoreImage, scoreRect = self.font.render(str(self.highScore),(0,0,0),size=40)
+            pygame.Surface.blit(self.screen,scoreImage,(640 - scoreRect[2] / 2,480 -scoreRect[3] /2))
+            self.font.render_to(self.screen, (600, 535), "Held by", (0,0,0), None, size=20)
+            #self.font.render_to(self.screen, (540, 580), self.hsName, (0,0,0), None, size=25)
+            nameImage, nameRect = self.font.render(str(self.hsName),(0,0,0),size=25)
+            pygame.Surface.blit(self.screen,nameImage,(640 - nameRect[2] / 2,578 - nameRect[3] /2))
 
 
 
