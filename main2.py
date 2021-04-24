@@ -58,7 +58,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.y -= self.speed
         if keys[ord('s')]:
             self.rect.y += self.speed
-        if keys[ord(' ')] and len(Game.alien_list) > 0:
+        if pygame.mouse.get_pressed()[0] or keys[ord(' ')] and len(Game.alien_list) > 0:
             current_time = pygame.time.get_ticks()
             if current_time - self.previous_time > self.firerate:
                 self.previous_time = current_time
@@ -178,11 +178,16 @@ class Game:
     font = pygame.freetype.Font(os.path.join(gamePath,"Xolonium-Bold.ttf"), font_size)
     screen = pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
+    inputName = ""
+    baseColour = (128,128,128)
+    activeColour = (255,255,255)
+    inputColour = baseColour
     def __init__(self):
         self.clock = pygame.time.Clock()
         self.startFlag = True
         self.readyFlag = False
         self.pause = False
+        self.inputState = False
     def run(self,running):
         self.setup()
         self.running = running
@@ -196,7 +201,42 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            elif event.type == pygame.KEYDOWN: 
+            if event.type == pygame.MOUSEMOTION:
+                # Change button colours on mouse over.
+                for button in self.buttonArray:
+                    if button[0].collidepoint(event.pos):
+                        button[1] = (153, 105 ,0)
+                    else:
+                        button[1] = (224,153,0)
+            if event.type == pygame.MOUSEBUTTONUP:
+                if self.inputBox.collidepoint(event.pos):
+                    self.inputState = not self.inputState
+                    self.inputColour = self.activeColour
+                else:
+                    self.inputState = False
+                    self.inputColour = self.baseColour
+                if self.restartBox.collidepoint(event.pos):
+                    Game().HighScoreWrite(self.player.score,self.inputName)
+                    self.running = False
+                    self.player.score = 0
+                    Game().run(True)
+                if self.exitBox.collidepoint(event.pos):
+                    Game().HighScoreWrite(self.player.score,self.inputName)
+                    self.running = False
+                    self.player.score = 0
+                    Menu().run()
+            if event.type == pygame.KEYDOWN: 
+                if self.inputState:
+                    if event.key == pygame.K_RETURN:
+                        self.inputState = False
+                        self.inputColour = self.baseColour
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.inputName = self.inputName[:-1]
+                    else:
+                        if len(self.inputName) == 10:
+                            pass
+                        else:
+                            self.inputName += event.unicode
                 if event.key == pygame.K_r:
                     self.readyFlag = True
     
@@ -218,7 +258,14 @@ class Game:
         self.scoreRect = pygame.Rect(10, 10, self.resX * 0.25 - 20, 50)
         self.alienHealthBarBase = pygame.Rect(10, 70, self.resX * 0.25 - 20, 50)
         self.healthBarBase = pygame.Rect(10, 902, self.resX * 0.25 - 20, self.resY * 0.05)
+        self.inputBox = pygame.Rect(self.resX * 0.25 + 160, (self.resY /2), 395, 60)
+        self.restartBox = pygame.Rect(self.resX * 0.25 + 160, (self.resY /2 + 70), 195, 60)
+        self.exitBox = pygame.Rect(self.resX * 0.25 + 360, (self.resY /2 + 70), 195, 60)
 
+        self.buttonArray = [
+            [self.restartBox, (224,153,0)],
+            [self.exitBox, (224,153,0)]
+        ]
         #Star generation
         self.starXs = []
         self.starYs = []
@@ -232,7 +279,7 @@ class Game:
         self.player = Player()
         self.playerGroup.add(self.player)
         self.all_sprites.add(self.player)
-
+        Player.score = 0
         self.waveCount = 1
         waveHealth = []
         self.alien_health = 0
@@ -287,11 +334,28 @@ class Game:
             self.player.health -= self.waveCount
             damageThud.play(0)
 
+        # Check if player has died.
         if self.player.health <= 0:
             for i in self.all_sprites:
                 i.kill()
-            self.font.render_to(self.screen, (self.resX * 0.25 + 80, self.resY /2), "GAME OVER", (255,255,255), None, size=80)
-            self.pause = True
+            newHS = False
+            highScore, hsName = Game().HighScoreRead("scores.txt")
+            print(type(self.player.score))
+            if int(self.player.score) > int(highScore):
+                newHS = True
+
+            self.font.render_to(self.screen, (self.resX * 0.25 + 80, self.resY /2 - 200), "GAME OVER", (255,255,255), None, size=80)
+            self.font.render_to(self.screen, (self.resX * 0.25 + 250, (self.resY /2) -130), "Score: "+str(self.player.score), (255,255,255), None, size=40)
+            if newHS:
+                self.font.render_to(self.screen, (self.resX * 0.25 + 205, (self.resY /2) -80), "HIGH SCORE!", (255,215,0), None, size=40)
+                self.font.render_to(self.screen, (self.resX * 0.25 + 160, (self.resY /2) -40), "Please enter name", (255,255,255), None, size=40)
+                pygame.draw.rect(self.screen, self.inputColour,self.inputBox,0,10)
+                text_surface = self.font.render(self.inputName,True,(0,0,0))
+                self.font.render_to(self.screen,(self.inputBox.x + 10,self.inputBox.y + 20),self.inputName,None,size=30)
+            for rect, colour in self.buttonArray:
+                pygame.draw.rect(self.screen, colour, rect,0, 10)
+            self.font.render_to(self.screen,(self.restartBox.x + 40,self.restartBox.y + 20),"Restart",None,size=30)
+            self.font.render_to(self.screen,(self.exitBox.x + 65,self.exitBox.y + 20),"Exit",None,size=30)
 
         # Check for collisions / ramming
         collisions = pygame.sprite.groupcollide(self.playerGroup, self.alien_list,False,False)
@@ -300,7 +364,7 @@ class Game:
                 obj.health -= 0.5
         # Monitor total health of alien wave.
         alien_health_percent = (self.alien_health / self.total_alien_health)
-        print(alien_health_percent, self.alien_health,self.total_alien_health)
+        #print(alien_health_percent, self.alien_health,self.total_alien_health)
         alienHealthBarFill = pygame.Rect(10, 70, (self.resX * 0.25 - 20)*(alien_health_percent), 50)
         pygame.draw.rect(self.screen, (3,194,252), alienHealthBarFill,0,3)
         Game().Stats(self.player.score,self.waveCount,self.player.health,alien_health_percent*100)
@@ -311,6 +375,7 @@ class Game:
             if choice > 998:
                 alien.fire(self.player.rect.centerx,self.player.rect.centery)
         
+        # Check if the wave has ended.
         if len(self.alien_list) == 0 and self.player.health > 0:
             for proj in self.alien_proj_list:
                 proj.kill()
@@ -333,7 +398,25 @@ class Game:
         self.font.render_to(self.screen, (12, 36), "Wave: "+str(wave), (0,0,0), None, size=30)
         self.font.render_to(self.screen, (45, 922), "Hull Integrity: "+str(health)+"%", (0,0,0), None, size=15)
         self.font.render_to(self.screen, (18, 90), "Psychon Strength: "+str("%.0f" % alien_health)+"%", (0,0,0), None, size=15)
-
+    def HighScoreWrite(self,score,name):
+        score_file = open("scores.txt","a")
+        score_file.write(str(score)+","+name+"\n")
+        score_file.close()
+        return
+    def HighScoreRead(self,file):
+        with open(file) as scores: 
+                lines = scores.read().splitlines()
+                maxScore = 0
+                hsName = ""
+                for line in lines:
+                    score = int(line.split(",")[0].strip())
+                    name = line.split(",")[1].strip()
+                    if score > maxScore:
+                        maxScore = score
+                        hsName = name
+                if maxScore == 0:
+                    maxScore = 0
+        return maxScore, hsName
 
 class Menu:
     resX = 960
@@ -357,17 +440,27 @@ class Menu:
             if event.type == pygame.QUIT:
                 self.running = False
                 pygame.quit
-            elif event.type == pygame.KEYDOWN: 
-                if event.key == pygame.K_r:
-                    self.running = False
-                    Game().run(True)
             elif event.type == pygame.MOUSEMOTION:
+                # Change button colours on mouse over.
                 for button in self.buttonArray:
                     if button[0].collidepoint(event.pos):
                         button[1] = (153, 105 ,0)
                     else:
                         button[1] = (224,153,0)
-                         
+            elif event.type == pygame.MOUSEBUTTONUP:
+                # Decide which button was clicked.
+                mousePos = event.pos
+                if self.playRect.collidepoint(mousePos):
+                    self.running = False
+                    pygame.mixer.music.stop()
+                    Game().run(True)
+                if self.quitRect.collidepoint(mousePos):
+                    self.running = False
+                    pygame.quit
+                if self.resetRect.collidepoint(mousePos):
+                    open('scores.txt', 'w').close()
+                    self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
+
     def setup(self):
         #Star generation
         self.starXs = []
@@ -394,7 +487,10 @@ class Menu:
             [self.resetRect, (224,153,0)],
         ]
 
-        pygame.mixer.music.load(os.path.join(soundPath,"menu2.wav"))
+        # Get highscore data from file.
+        self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
+
+        pygame.mixer.music.load(os.path.join(soundPath,"menu.wav"))
         pygame.mixer.music.play(-1)
     def draw(self):
         self.screen.fill((0, 0 ,0))
@@ -423,8 +519,14 @@ class Menu:
         self.font.render_to(self.screen, (540, 670), "Reset HS", (0,0,0), None, size=40)
         self.font.render_to(self.screen, (380, 760), "By Benjamin Wilson", (255,255,255), None, size=20)
         self.font.render_to(self.screen, (585, 435), "High Score", (0,0,0), None, size=20)
+        scoreImage, scoreRect = self.font.render(str(self.highScore),(0,0,0),size=40)
+        pygame.Surface.blit(self.screen,scoreImage,(640 - scoreRect[2] / 2,480 -scoreRect[3] /2))
         self.font.render_to(self.screen, (600, 535), "Held by", (0,0,0), None, size=20)
-Game().run(True)
-#Menu().run()
+        #self.font.render_to(self.screen, (540, 580), self.hsName, (0,0,0), None, size=25)
+        nameImage, nameRect = self.font.render(str(self.hsName),(0,0,0),size=25)
+        pygame.Surface.blit(self.screen,nameImage,(640 - nameRect[2] / 2,578 - nameRect[3] /2))
+
+
+Menu().run()
 pygame.quit()
 quit()
