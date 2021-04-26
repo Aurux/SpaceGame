@@ -31,20 +31,6 @@ mouseOver = pygame.mixer.Sound(os.path.join(soundPath,"mouse_over_click.wav"))
 
 
 
-MOUSE_STATE_WITHIN_RECT = 1
-MOUSE_STATE_JUST_HIT_RECT = 2
-MOUSE_NOT_IN_RECT = 3
-
-
-def Mouse_State(button,pos,state):
-    if button.collidepoint(pos):
-        if state == MOUSE_STATE_WITHIN_RECT:
-            return MOUSE_STATE_WITHIN_RECT
-        else:
-            return MOUSE_STATE_JUST_HIT_RECT
-    else:
-        return MOUSE_NOT_IN_RECT
-
 # The player class
 class Player(pygame.sprite.Sprite):
     score = 0
@@ -64,6 +50,7 @@ class Player(pygame.sprite.Sprite):
         self.angle = 0
         self.direction = pygame.math.Vector2(0,-1)
         self.firerate = 300
+        self.mask = pygame.mask.from_surface(self.image)
     def update(self):
         # Takes key input to move player around with bounding condtions to keep player within play area.
         keys = pygame.key.get_pressed()
@@ -111,6 +98,7 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.y = y
         self.health = health
         self.speed = [random.randint(-5,5),random.randint(-5,5)]
+        self.mask = pygame.mask.from_surface(self.image)
     def update(self):
         self.rect = self.rect.move(self.speed)
         if self.rect.left < Game.resX * 0.25 + 50 or self.rect.right > Game.resX - 50:
@@ -120,34 +108,35 @@ class Enemy(pygame.sprite.Sprite):
         if self.health <= 0:
             self.kill()
             if self.image == smallAlien:
-                Player.score += 5
-            if self.image == largeAlien:
                 Player.score += 10
+            if self.image == largeAlien:
+                Player.score += 25
+            if self.image == bossAlien:
+                Player.score += 100
     def hit(self):
         self.kill()
     def spawn(waveCount):
         # Spawns in varying amounts of aliens and varying sizes of aliens depending on which wave you're on.
         
-        for i in range(50*waveCount):
+        for i in range(15*waveCount):
             alienX = Game.resX * 0.625
             alienY = 100
             i = Enemy(smallAlien,alienX,alienY,10)
             Game.alien_list.add(i)
             Game.all_sprites.add(i)
         if waveCount >= 5:
-            if waveCount % 5 == 0:
-                for i in range(waveCount):
-                    alienX = Game.resX * 0.625
-                    alienY = 100
-                    i = Enemy(largeAlien,alienX,alienY,30)
-                    Game.alien_list.add(i)
-                    Game.all_sprites.add(i)
+            for i in range(waveCount-4):
+                alienX = Game.resX * 0.625
+                alienY = 100
+                i = Enemy(largeAlien,alienX,alienY,30)
+                Game.alien_list.add(i)
+                Game.all_sprites.add(i)
             if waveCount % 10 == 0:
                 print(waveCount)
                 for i in range(int(waveCount/10)):
                     alienX = Game.resX * 0.625
                     alienY = 100
-                    i = Enemy(bossAlien,alienX,alienY,10000)
+                    i = Enemy(bossAlien,alienX,alienY,1000)
                     Game.alien_list.add(i)
                     Game.all_sprites.add(i) 
         return
@@ -173,8 +162,8 @@ class Projectile(pygame.sprite.Sprite):
         self.enemyspeed = 7
         self.angle = angle
         self.rect = self.image.get_rect()
-        
         self.rect.center = (x,y)
+        self.mask = pygame.mask.from_surface(self.image)
     def update(self):
         if self.image == purpleLaser:
             change = ((self.rect.centerx) - int((self.speed * math.sin(math.radians(self.angle)))),(self.rect.centery) - int((self.speed * math.cos(math.radians(self.angle)))))
@@ -362,7 +351,7 @@ class Game:
     
     def game_logic(self):
         # Check for players hits
-        hits = pygame.sprite.groupcollide(self.proj_list,self.alien_list,True,False)
+        hits = pygame.sprite.groupcollide(self.proj_list,self.alien_list,True,False, pygame.sprite.collide_mask)
         for i in hits.values():
             for alien in i:
                 alien.health -= self.player.damage
@@ -371,8 +360,8 @@ class Game:
             self.alien_health = 0
 
         # Check for alien hits
-        if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True):
-            self.player.health -= self.waveCount
+        if pygame.sprite.spritecollide(self.player,self.alien_proj_list,True, pygame.sprite.collide_mask):
+            self.player.health -= self.waveCount / 2
             damageThud.set_volume(0.8*volumePercent)
             damageThud.play(0)
 
@@ -400,7 +389,7 @@ class Game:
             self.font.render_to(self.screen,(self.exitBox.x + 65,self.exitBox.y + 20),"Exit",None,size=30)
 
         # Check for collisions / ramming
-        collisions = pygame.sprite.groupcollide(self.playerGroup, self.alien_list,False,False)
+        collisions = pygame.sprite.groupcollide(self.playerGroup, self.alien_list,False,False, pygame.sprite.collide_mask)
         for i in collisions.values():
             for obj in i:
                 obj.health -= 0.5
@@ -427,6 +416,7 @@ class Game:
             self.player.rect.centerx = self.resX * 0.625
             self.player.rect.bottom = self.resY - 20
             if self.readyFlag:
+                Player.score += 1000
                 self.waveCount += 1
                 self.startFlag = True
                 self.readyFlag = False
@@ -468,6 +458,7 @@ global volumeLevel
 volumeLevel = 10
 global volumePercent        
 volumePercent = volumeLevel / 10
+
 class Menu:
     resX = 960
     resY = 960
@@ -514,7 +505,7 @@ class Menu:
                 if self.optionState is False:
                     if self.playRect.collidepoint(mousePos):
                         self.running = False
-                        pygame.mixer.music.stop()
+                        #pygame.mixer.music.stop()
                         Game().run(True)
                     if self.quitRect.collidepoint(mousePos):
                         self.running = False
@@ -578,11 +569,10 @@ class Menu:
         # Get highscore data from file.
         self.highScore, self.hsName = Game().HighScoreRead("scores.txt")
 
+        # Play game music
         pygame.mixer.music.load(os.path.join(soundPath,"menu.wav"))
-
         pygame.mixer.music.play(-1)
     def draw(self):
-        print(volumePercent)
         pygame.mixer.music.set_volume(volumePercent)
         mouseOver.set_volume(0.2*volumePercent)
         self.screen.fill((0, 0 ,0))
