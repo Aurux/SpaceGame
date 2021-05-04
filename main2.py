@@ -2,8 +2,9 @@ import pygame
 import random
 import math
 import pygame.freetype
-import os
 import sys
+import os
+
 
 gamePath = os.path.dirname(__file__)
 artPath = os.path.join(gamePath,"art")
@@ -465,7 +466,8 @@ class Menu:
     FPS = 60
     font_size = 60
     font = pygame.freetype.Font(os.path.join(gamePath,"Xolonium-Bold.ttf"), font_size)
-    screen = pygame.display.set_mode((resX,resY))
+    screen = Game.screen
+    #pygame.display.set_mode((resX,resY))
     pygame.display.set_caption('The Psychon Assault')
     clock = pygame.time.Clock()
     hovered = False
