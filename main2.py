@@ -49,7 +49,6 @@ class Player(pygame.sprite.Sprite):
         self.health = 100
         self.damage = 10
         self.angle = 0
-        self.direction = pygame.math.Vector2(0,-1)
         self.firerate = 300
         self.mask = pygame.mask.from_surface(self.image)
     def update(self):
@@ -81,7 +80,6 @@ class Player(pygame.sprite.Sprite):
         self.angle = -math.atan2(relY,relX)
         self.image = pygame.transform.rotate(self.image_init, int(math.degrees(self.angle)- 90))
     def fire(self):
-        print(volumePercent)
         playerLaser.set_volume(0.5*volumePercent)
         playerLaser.play(0)
         shot = Projectile(purpleLaser,self.rect.centerx,self.rect.centery,int(math.degrees(self.angle)- 90))
@@ -133,7 +131,6 @@ class Enemy(pygame.sprite.Sprite):
                 Game.alien_list.add(i)
                 Game.all_sprites.add(i)
             if waveCount % 10 == 0:
-                print(waveCount)
                 for i in range(int(waveCount/10)):
                     alienX = Game.resX * 0.625
                     alienY = 100
@@ -406,7 +403,6 @@ class Game:
                 obj.health -= 0.5
         # Monitor total health of alien wave.
         alien_health_percent = (self.alien_health / self.total_alien_health)
-        #print(alien_health_percent, self.alien_health,self.total_alien_health)
         alienHealthBarFill = pygame.Rect(10, 70, (self.resX * 0.25 - 20)*(alien_health_percent), 50)
         pygame.draw.rect(self.screen, (3,194,252), alienHealthBarFill,0,3)
         Game().Stats(self.player.score,self.waveCount,self.player.health,alien_health_percent*100)
