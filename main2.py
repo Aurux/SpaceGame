@@ -224,6 +224,12 @@ class Game:
                         #mouseOver.play(0)
                     else:
                         button[1] = (224,153,0)
+                for button in self.gameOverButtonArray:
+                    if button[0].collidepoint(event.pos):
+                        button[1] = (153, 105 ,0)
+                        #mouseOver.play(0)
+                    else:
+                        button[1] = (224,153,0)
             if event.type == pygame.MOUSEBUTTONUP:
                 if self.inputBox.collidepoint(event.pos):
                     self.inputState = not self.inputState
@@ -296,6 +302,11 @@ class Game:
             [self.restartBox, (224,153,0)],
             [self.exitBox, (224,153,0)],
             [self.resumeBox, (224,153,0)]
+        ]
+
+        self.gameOverButtonArray = [
+            [self.restartBox, (224,153,0)],
+            [self.exitBox, (224,153,0)]
         ]
         #Star generation
         self.starXs = []
@@ -372,7 +383,6 @@ class Game:
                 i.kill()
             newHS = False
             highScore, hsName = Game().HighScoreRead("scores.txt")
-            print(type(self.player.score))
             if int(self.player.score) > int(highScore):
                 newHS = True
 
@@ -384,7 +394,7 @@ class Game:
                 pygame.draw.rect(self.screen, self.inputColour,self.inputBox,0,10)
                 text_surface = self.font.render(self.inputName,True,(0,0,0))
                 self.font.render_to(self.screen,(self.inputBox.x + 10,self.inputBox.y + 20),self.inputName,None,size=30)
-            for rect, colour in self.buttonArray:
+            for rect, colour in self.gameOverButtonArray:
                 pygame.draw.rect(self.screen, colour, rect,0, 10)
             self.font.render_to(self.screen,(self.restartBox.x + 40,self.restartBox.y + 20),"Restart",None,size=30)
             self.font.render_to(self.screen,(self.exitBox.x + 65,self.exitBox.y + 20),"Exit",None,size=30)
